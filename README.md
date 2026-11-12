@@ -2,7 +2,7 @@
 
 How to play to ByteGotchi?
 
-Have a Linux environment
+Have a Linux environment:
 wsl --install -d Debian
 
 Install tools:
@@ -11,7 +11,7 @@ sudo apt install nasm gcc libsdl2-dev
 
 Get the file:
 mkdir -p ~/bytegotchi
-cp /mnt/c/Users/TON_NOM/Downloads/bytegotchi.s ~/bytegotchi/
+cp /mnt/c/Users/User/Downloads/bytegotchi.s ~/tama/
 cd ~/bytegotchi
 
 Compilation:
