@@ -43,7 +43,8 @@ default rel
 %define DUREE_MESSAGE 3000
 %define JOURS_ADULTE 3
 %define NB_ANIMAUX 5
-%define NB_ITEMS 12
+%define NB_ITEMS 13
+%define ITEM_GATEAU 12
 %define MAX_CACAS 4
 %define SEUIL_MALHEUREUX 36
 %define SEUIL_DEPART 90
@@ -1204,6 +1205,8 @@ msg_parfum db "IL SENT TRES BON !", 0
 msg_deja_propre db "IL EST DEJA PROPRE !", 0
 msg_grandi db "IL A GRANDI !", 0
 msg_malheureux db "IL EST MALHEUREUX !", 0
+msg_anniversaire db "JOYEUX ANNIVERSAIRE !", 0
+msg_deja_adulte db "IL EST DÉJÀ ADULTE !", 0
 
 lib_identite db "CARTE D'IDENTITÉ", 0
 lib_besoins db "SES BESOINS", 0
@@ -1233,9 +1236,10 @@ item_remede db "REMÈDE", 0
 item_eponge db "ÉPONGE", 0
 item_savon db "SAVON", 0
 item_parfum db "PARFUM", 0
+item_gateau db "GÂTEAU", 0
 
-prix_items db 2, 4, 1, 3, 3, 3, 2, 5, 8, 2, 4, 3
-gains_items db 8, 40, 10, 0, 20, 20, 15, 30, 0, 0, 0, 0
+prix_items db 2, 4, 1, 3, 3, 3, 2, 5, 8, 2, 4, 3, 100
+gains_items db 8, 40, 10, 0, 20, 20, 15, 30, 0, 0, 0, 0, 0
 gains_proprete db 15, 35, 10
 favoris db 1, 1, 7, 5, 6
 positions_cacas db 14, 48, 14, 72, 14, 96, 136, 104
@@ -1268,7 +1272,7 @@ section .data
 
 libelles_icones dq lib_identite, lib_besoins, lib_magasin, lib_sommeil, lib_manger, lib_jouer, lib_soigner, lib_hygiene, lib_inventaire
 noms_animaux dq esp_chat, esp_chien, esp_souris, esp_oiseau, esp_lapin
-noms_items dq item_bonbons, item_croquettes, item_eau, item_cafe, item_pommes, item_raisin, item_carottes, item_fromage, item_remede, item_eponge, item_savon, item_parfum
+noms_items dq item_bonbons, item_croquettes, item_eau, item_cafe, item_pommes, item_raisin, item_carottes, item_fromage, item_remede, item_eponge, item_savon, item_parfum, item_gateau
 noms_pfc dq txt_pierre, txt_feuille, txt_ciseaux
 textes_manche dq 0, txt_manche_gagnee, txt_manche_perdue, txt_egalite
 textes_morpion dq txt_a_toi, txt_morpion_gagne, txt_morpion_perdu, txt_morpion_nul
@@ -1345,7 +1349,8 @@ compteur_tick resd 1
 delai_caca resd 1
 nb_cacas resd 1
 cacas resd 4
-stock resd 12
+stock resd 13
+jours_bonus resd 1
 sauv_fin:
 
 TAILLE_SAUV equ sauv_fin - sauv_debut
@@ -1646,6 +1651,7 @@ stock_nourriture:
     inc edx
     cmp edx, 8
     jb .boucle
+    add eax, [rcx + 48]
     ret
 
 stock_hygiene:
@@ -1715,6 +1721,7 @@ age_jours:
     xor edx, edx
     mov ecx, 86400
     div rcx
+    add eax, [jours_bonus]
     sortie
 
 mettre_a_jour_stade:
@@ -2833,11 +2840,13 @@ ecran_magasin:
     xor ebx, ebx
 .ligne:
     mov eax, [boutique_page]
-    imul eax, 6
+    imul eax, 7
     add eax, ebx
     mov r14d, eax
+    cmp r14d, NB_ITEMS
+    jae .suivant
     mov eax, ebx
-    imul eax, 12
+    imul eax, 11
     add eax, 34
     mov r12d, eax
 
@@ -2881,11 +2890,11 @@ ecran_magasin:
     call acheter
 .suivant:
     inc ebx
-    cmp ebx, 6
+    cmp ebx, 7
     jb .ligne
 
     lea rdi, [txt_legende]
-    mov edx, 112
+    mov edx, 114
     call texte_centre
 
     mov edi, 50
@@ -2932,9 +2941,9 @@ ecran_inventaire:
 .ligne:
     mov eax, ebx
     mov r12d, 4
-    cmp eax, 6
+    cmp eax, 7
     jb .colonne
-    sub eax, 6
+    sub eax, 7
     mov r12d, 84
 .colonne:
     imul eax, 10
@@ -3015,6 +3024,10 @@ ecran_manger:
 .suivant:
     inc ebx
     cmp ebx, 8
+    jne .borne
+    mov ebx, ITEM_GATEAU
+.borne:
+    cmp ebx, NB_ITEMS
     jb .item
     lea rdi, [txt_legende]
     mov edx, 118
@@ -3025,6 +3038,8 @@ ecran_manger:
 nourrir:
     entree
     mov ebx, edi
+    cmp ebx, ITEM_GATEAU
+    je .gateau
     cmp dword [faim], 100
     jl .manger
     lea rdi, [msg_plus_faim]
@@ -3067,6 +3082,33 @@ nourrir:
     test eax, 1
     jz .fin
     mov dword [delai_caca], 5
+    jmp .fin
+.gateau:
+    cmp dword [stade], 0
+    jne .deja_adulte
+    lea rcx, [stock]
+    dec dword [rcx + rbx * 4]
+    inc dword [jours_bonus]
+    lea rdi, [humeur]
+    mov esi, 30
+    call ajuster
+    lea rdi, [faim]
+    mov esi, 10
+    call ajuster
+    call declencher_saut
+    lea rdi, [msg_anniversaire]
+    mov esi, SON_GRANDI
+    call poser_message_son
+    call SDL_GetTicks
+    add eax, 1600
+    mov [mange_fin], eax
+    mov dword [etat], ETAT_JEU
+    call mettre_a_jour_stade
+    jmp .fin
+.deja_adulte:
+    lea rdi, [msg_deja_adulte]
+    mov esi, SON_ERREUR
+    call poser_message_son
 .fin:
     sortie
 
@@ -4266,7 +4308,10 @@ charger:
     mov rdi, r12
     call fclose
     cmp rbx, TAILLE_SAUV
+    je .taille_ok
+    cmp rbx, TAILLE_SAUV - 8
     jne .echec
+.taille_ok:
     cmp dword [sauv_magic], MAGIC
     jne .echec
     cmp dword [animal], NB_ANIMAUX
