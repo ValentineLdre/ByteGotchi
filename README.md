@@ -30,4 +30,4 @@ Play:
 ./bytegotchi
 ```
 
-Your game is saved even if you close the game. To start over, delete the bytegotchi.sav file (in the folder where you launch the game).
+
